@@ -43,6 +43,13 @@ the takeoff node.
 | `takeoff`  | `false`           | arm and climb once the sim is up       |
 | `altitude` | `3.0`             | target altitude in metres              |
 
+The launch file sets `GZ_RENDERING_PLUGIN_PATH` and
+`GZ_RENDERING_RESOURCE_PATH` from `CONDA_PREFIX` before starting Gazebo. The
+RoboStack conda build bakes in an install prefix that does not survive
+relocation, so without them the GUI fails with `Failed to load plugin
+[gz-rendering-ogre2]`, then cannot find its shader media. Rendering falls back
+to Mesa software GL on this machine (no GPU), so the GUI is usable but slow.
+
 ## Topics
 
 | topic                  | type                      | direction   |

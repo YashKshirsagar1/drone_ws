@@ -9,13 +9,39 @@ import os
 
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import AppendEnvironmentVariable, DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument,
+                            IncludeLaunchDescription, SetEnvironmentVariable)
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ros_gz_bridge.actions import RosGzBridge
+
+
+def _rendering_env():
+    """Point gz-rendering at its ogre2 plugin and media directories.
+
+    The RoboStack conda build bakes in an install prefix that does not survive
+    relocation, so the GUI reports "Failed to load plugin [gz-rendering-ogre2]"
+    and then cannot find its shader media. Both live under CONDA_PREFIX at
+    predictable paths; set them only when they are not already set.
+    """
+    prefix = os.environ.get('CONDA_PREFIX')
+    if not prefix:
+        return []
+
+    wanted = {
+        'GZ_RENDERING_PLUGIN_PATH':
+            os.path.join(prefix, 'lib', 'gz-rendering-8', 'engine-plugins'),
+        'GZ_RENDERING_RESOURCE_PATH':
+            os.path.join(prefix, 'share', 'gz', 'gz-rendering8'),
+    }
+    return [
+        SetEnvironmentVariable(name, path)
+        for name, path in wanted.items()
+        if name not in os.environ and os.path.isdir(path)
+    ]
 
 
 def generate_launch_description():
@@ -51,6 +77,7 @@ def generate_launch_description():
                               description='Target altitude in metres for takeoff:=true.'),
 
         resource_path,
+        *_rendering_env(),
 
         gz(['-r -v2 ', world_path], UnlessCondition(headless)),
         gz(['-s -r -v2 ', world_path], IfCondition(headless)),
