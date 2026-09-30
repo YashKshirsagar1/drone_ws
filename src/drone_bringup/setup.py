@@ -36,6 +36,8 @@ setup(
     entry_points={
         'console_scripts': [
             'takeoff = drone_bringup.takeoff:main',
+            'teleop_key = drone_bringup.teleop_key:main',
+            'mission = drone_bringup.mission:main',
         ],
     },
 )

@@ -3,6 +3,13 @@
     ros2 launch drone_bringup drone_sim.launch.py                # GUI
     ros2 launch drone_bringup drone_sim.launch.py headless:=true # no GUI
     ros2 launch drone_bringup drone_sim.launch.py takeoff:=true  # fly on start
+    ros2 launch drone_bringup drone_sim.launch.py mission:=true  # fly A -> B
+
+Keyboard control is not launched from here: launch owns the stdin of everything
+it starts, and the teleop node needs a terminal of its own. Run it beside the
+sim instead:
+
+    ros2 run drone_bringup teleop_key
 """
 
 import os
@@ -74,7 +81,17 @@ def generate_launch_description():
         DeclareLaunchArgument('takeoff', default_value='false',
                               description='Arm and climb to `altitude` once the sim is up.'),
         DeclareLaunchArgument('altitude', default_value='3.0',
-                              description='Target altitude in metres for takeoff:=true.'),
+                              description='Target altitude in metres, above the launch point.'),
+        DeclareLaunchArgument('mission', default_value='false',
+                              description='Take off at A, cruise to B and land there.'),
+        DeclareLaunchArgument('a_x', default_value='0.0',
+                              description='Point A x in metres, for mission:=true.'),
+        DeclareLaunchArgument('a_y', default_value='0.0',
+                              description='Point A y in metres, for mission:=true.'),
+        DeclareLaunchArgument('b_x', default_value='5.0',
+                              description='Point B x in metres, for mission:=true.'),
+        DeclareLaunchArgument('b_y', default_value='4.0',
+                              description='Point B y in metres, for mission:=true.'),
 
         resource_path,
         *_rendering_env(),
@@ -95,5 +112,19 @@ def generate_launch_description():
             parameters=[{'altitude': ParameterValue(
                 LaunchConfiguration('altitude'), value_type=float)}],
             condition=IfCondition(LaunchConfiguration('takeoff')),
+        ),
+
+        Node(
+            package='drone_bringup',
+            executable='mission',
+            name='mission',
+            output='screen',
+            parameters=[{
+                **{arg: ParameterValue(LaunchConfiguration(arg), value_type=float)
+                   for arg in ('a_x', 'a_y', 'b_x', 'b_y')},
+                'cruise_altitude': ParameterValue(
+                    LaunchConfiguration('altitude'), value_type=float),
+            }],
+            condition=IfCondition(LaunchConfiguration('mission')),
         ),
     ])

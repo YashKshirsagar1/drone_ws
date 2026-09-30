@@ -1,11 +1,17 @@
 """Arm the multicopter controller and climb to a target altitude, then hold.
 
     ros2 run drone_bringup takeoff --ros-args -p altitude:=5.0
+
+The altitude is measured from wherever the drone is when it arms, which is
+what `mission.py` and `teleop_key.py` mean by it too. The model spawns 0.16 m
+above where it comes to rest, so an absolute target would quietly be off by
+that much.
 """
 
 import rclpy
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from std_msgs.msg import Bool
 
@@ -29,6 +35,7 @@ class Takeoff(Node):
         self.create_subscription(Odometry, '/odom', self._on_odom, 10)
 
         self.z = None
+        self.launch_z = None
         self.state = 'arming'
         self._ticks = 0
         self.create_timer(0.1, self._tick)
@@ -36,6 +43,10 @@ class Takeoff(Node):
 
     def _on_odom(self, msg):
         self.z = msg.pose.pose.position.z
+
+    @property
+    def target_z(self):
+        return self.launch_z + self.altitude
 
     def _track_altitude(self):
         """Command a climb rate proportional to the remaining error.
@@ -45,7 +56,7 @@ class Takeoff(Node):
         already carried past the target. Tapering the command near the target
         both lands it on the setpoint and holds it there.
         """
-        error = self.altitude - self.z
+        error = self.target_z - self.z
         speed = max(-self.climb_speed, min(self.climb_speed, self.gain * error))
         cmd = Twist()
         cmd.linear.z = speed
@@ -59,14 +70,16 @@ class Takeoff(Node):
             # the bridge may still be connecting, so repeat for a second.
             self.enable_pub.publish(Bool(data=True))
             if self._ticks >= 10 and self.z is not None:
+                self.launch_z = self.z
                 self.state = 'climbing'
             elif self._ticks == 50:
                 self.get_logger().warn('no /odom yet - is the sim running?')
             return
 
-        if self.state == 'climbing' and abs(self.altitude - self.z) <= self.tolerance:
+        if self.state == 'climbing' and abs(self.target_z - self.z) <= self.tolerance:
             self.state = 'holding'
-            self.get_logger().info(f'reached {self.z:.2f} m, holding')
+            self.get_logger().info(
+                f'reached {self.z - self.launch_z:.2f} m, holding')
 
         # Keep tracking in both states, so the hold corrects any drift.
         self._track_altitude()
@@ -77,7 +90,7 @@ def main(args=None):
     node = Takeoff()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
         node.destroy_node()
