@@ -1,0 +1,17 @@
+# The building the inspection flights survey: a U seen from above, open to +y.
+#
+# It is a union of axis-aligned boxes, given as their footprints in the world
+# frame (metres) plus one shared height. worlds/inspection_world.sdf builds the
+# same boxes for Gazebo - keep the two in step (test_building.py checks).
+#
+# The courtyard between the arms is 8 m wide, which is what makes this a
+# concave target: an orbit around the centre never sees the courtyard walls
+# head-on, and parts of them not at all.
+
+height: 6.0
+
+boxes:
+  # [x_min, x_max, y_min, y_max]
+  - [8.0, 26.0, -6.0, -1.0]   # base of the U
+  - [8.0, 13.0, -1.0, 9.0]    # left arm
+  - [21.0, 26.0, -1.0, 9.0]   # right arm
