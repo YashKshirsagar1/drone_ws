@@ -141,8 +141,10 @@ def generate_launch_description():
             executable='inspect',
             name='inspect',
             output='screen',
-            parameters=[{'altitude': ParameterValue(
-                LaunchConfiguration('altitude'), value_type=float)}],
+            # The lap is timed against the plan, so it must run on sim time.
+            parameters=[{'use_sim_time': True,
+                         'altitude': ParameterValue(
+                             LaunchConfiguration('altitude'), value_type=float)}],
             condition=IfCondition(LaunchConfiguration('inspect')),
         ),
     ])
