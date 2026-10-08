@@ -4,6 +4,7 @@
     ros2 launch drone_bringup drone_sim.launch.py headless:=true # no GUI
     ros2 launch drone_bringup drone_sim.launch.py takeoff:=true  # fly on start
     ros2 launch drone_bringup drone_sim.launch.py mission:=true  # fly A -> B
+    ros2 launch drone_bringup drone_sim.launch.py inspect:=true  # lap the building
 
 Keyboard control is not launched from here: launch owns the stdin of everything
 it starts, and the teleop node needs a terminal of its own. Run it beside the
@@ -17,7 +18,8 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import (AppendEnvironmentVariable, DeclareLaunchArgument,
-                            IncludeLaunchDescription, SetEnvironmentVariable)
+                            IncludeLaunchDescription, SetEnvironmentVariable,
+                            SetLaunchConfiguration)
 from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
@@ -84,6 +86,8 @@ def generate_launch_description():
                               description='Target altitude in metres, above the launch point.'),
         DeclareLaunchArgument('mission', default_value='false',
                               description='Take off at A, cruise to B and land there.'),
+        DeclareLaunchArgument('inspect', default_value='false',
+                              description='Load the building world and fly one optimized lap around it.'),
         DeclareLaunchArgument('a_x', default_value='0.0',
                               description='Point A x in metres, for mission:=true.'),
         DeclareLaunchArgument('a_y', default_value='0.0',
@@ -95,6 +99,10 @@ def generate_launch_description():
 
         resource_path,
         *_rendering_env(),
+
+        # inspect:=true swaps in the world with the building in it.
+        SetLaunchConfiguration('world', 'inspection_world.sdf',
+                               condition=IfCondition(LaunchConfiguration('inspect'))),
 
         gz(['-r -v2 ', world_path], UnlessCondition(headless)),
         gz(['-s -r -v2 ', world_path], IfCondition(headless)),
@@ -126,5 +134,15 @@ def generate_launch_description():
                     LaunchConfiguration('altitude'), value_type=float),
             }],
             condition=IfCondition(LaunchConfiguration('mission')),
+        ),
+
+        Node(
+            package='drone_bringup',
+            executable='inspect',
+            name='inspect',
+            output='screen',
+            parameters=[{'altitude': ParameterValue(
+                LaunchConfiguration('altitude'), value_type=float)}],
+            condition=IfCondition(LaunchConfiguration('inspect')),
         ),
     ])

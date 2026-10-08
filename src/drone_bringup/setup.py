@@ -38,6 +38,7 @@ setup(
             'takeoff = drone_bringup.takeoff:main',
             'teleop_key = drone_bringup.teleop_key:main',
             'mission = drone_bringup.mission:main',
+            'inspect = drone_bringup.inspect_flight:main',
         ],
     },
 )
